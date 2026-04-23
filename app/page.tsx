@@ -887,12 +887,12 @@ Command: Orchestrate all 30 agents. NARADA manages communication flow. CHITRAGUP
                         <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-primary via-secondary to-accent z-50 animate-pulse shadow-[0_0_10px_rgba(99,102,241,0.8)]" />
                       )}
 
-                      <ChatHeader 
+                      <ChatHeader
                         onTriggerSamudraManthan={triggerSamudraManthan}
                         onClearChatHistory={clearChatHistory}
                       />
 
-                      <MessageList 
+                      <MessageList
                         messages={messages}
                         activeAgent={activeAgent}
                         loading={loading}
@@ -900,7 +900,7 @@ Command: Orchestrate all 30 agents. NARADA manages communication flow. CHITRAGUP
                         messagesEndRef={messagesEndRef}
                       />
 
-                      <ChatForm 
+                      <ChatForm
                         input={input}
                         setInput={setInput}
                         loading={loading}

@@ -16,11 +16,11 @@ export function ChatForm({ input, setInput, loading, onSendMessage, onStop }: Ch
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { 
-            if (e.key === 'Enter' && !e.shiftKey) { 
-              e.preventDefault(); 
-              onSendMessage(e as any); 
-            } 
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              onSendMessage(e as any);
+            }
           }}
           placeholder="Initialize divine protocol..."
           rows={2}
