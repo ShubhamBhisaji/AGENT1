@@ -20,7 +20,6 @@ import {
   Globe,
   RotateCw,
   ExternalLink,
-  Square,
   Zap,
   Sparkles,
   Command,
@@ -31,7 +30,6 @@ import {
   FolderPlus,
   FilePlus,
   Trash2,
-  Flame,
   GitBranch,
   Database,
   HardDrive
@@ -210,12 +208,16 @@ export default function ChatPage() {
   }, [openFiles]);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
+    if (messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [messages.length, scrollToBottom]);
 
   useEffect(() => {
-    scrollTerminalToBottom();
-  }, [terminalOutput, scrollTerminalToBottom]);
+    if (terminalOutput.length > 0) {
+      scrollTerminalToBottom();
+    }
+  }, [terminalOutput.length, scrollTerminalToBottom]);
 
   // Scroll to bottom after hydration
   useEffect(() => {

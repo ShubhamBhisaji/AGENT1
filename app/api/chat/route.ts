@@ -95,7 +95,7 @@ GOAL: Complete requested project fully with zero manual steps from user.`;
     // Convert messages to Gemini format and prune history
     const chatHistory = pruneHistory(
       fullHistory
-        .filter((m: any) => m && m.content)  // Filter out invalid messages
+        .filter((m: any) => m && m.content && !m.hidden)  // Filter out invalid and hidden messages
         .map((m: any) => ({
           role: m.role === 'user' || m.role === 'system' ? 'user' : 'model',
           parts: [{ text: m.content }]
@@ -112,13 +112,10 @@ GOAL: Complete requested project fully with zero manual steps from user.`;
           'x-goog-api-key': apiKey,
         },
         body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: systemPrompt }],
-            },
-            ...chatHistory,
-          ],
+          systemInstruction: {
+            parts: [{ text: systemPrompt }]
+          },
+          contents: chatHistory,
           generationConfig: {
             maxOutputTokens: 4096,
             temperature: 0.3,  // Slightly higher for more variety in responses
