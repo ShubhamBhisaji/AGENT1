@@ -37,6 +37,10 @@ import {
   HardDrive
 } from 'lucide-react';
 
+import { ChatHeader } from '../components/chat/ChatHeader';
+import { ChatForm } from '../components/chat/ChatForm';
+import { MessageList } from '../components/chat/MessageList';
+
 const Code2 = (props: any) => <span {...props}>&lt;/&gt;</span>;
 const Cpu = (props: any) => <span {...props}>CPU</span>;
 
@@ -167,36 +171,42 @@ export default function ChatPage() {
   // --- Persistence ---
   useEffect(() => {
     setMounted(true);
-    const savedMessages = localStorage.getItem('devi_messages');
-    if (savedMessages) {
-      try {
-        const parsed = JSON.parse(savedMessages);
-        if (Array.isArray(parsed)) {
-          setMessages(parsed.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) })));
-        }
-      } catch (e) { console.error("History load failed"); }
-    }
-    const savedFiles = localStorage.getItem('devi_open_files');
-    if (savedFiles) {
-      try {
-        const parsed = JSON.parse(savedFiles);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setOpenFiles(parsed);
-          setActiveFileIndex(0);
-        }
-      } catch (e) { console.error("Files load failed"); }
-    } else {
-      // If no files saved, clear index
-      setActiveFileIndex(-1);
+    if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+      const savedMessages = window.localStorage.getItem('devi_messages');
+      if (savedMessages) {
+        try {
+          const parsed = JSON.parse(savedMessages);
+          if (Array.isArray(parsed)) {
+            setMessages(parsed.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) })));
+          }
+        } catch (e) { console.error("History load failed"); }
+      }
+      const savedFiles = window.localStorage.getItem('devi_open_files');
+      if (savedFiles) {
+        try {
+          const parsed = JSON.parse(savedFiles);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setOpenFiles(parsed);
+            setActiveFileIndex(0);
+          }
+        } catch (e) { console.error("Files load failed"); }
+      } else {
+        // If no files saved, clear index
+        setActiveFileIndex(-1);
+      }
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('devi_messages', JSON.stringify(messages));
+    if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+      window.localStorage.setItem('devi_messages', JSON.stringify(messages));
+    }
   }, [messages]);
 
   useEffect(() => {
-    localStorage.setItem('devi_open_files', JSON.stringify(openFiles));
+    if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+      window.localStorage.setItem('devi_open_files', JSON.stringify(openFiles));
+    }
   }, [openFiles]);
 
   useEffect(() => {
@@ -877,109 +887,26 @@ Command: Orchestrate all 30 agents. NARADA manages communication flow. CHITRAGUP
                         <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-primary via-secondary to-accent z-50 animate-pulse shadow-[0_0_10px_rgba(99,102,241,0.8)]" />
                       )}
 
-                      {/* Chat Header Actions */}
-                      <div className="flex justify-between items-center px-4 py-2 border-b border-white/5 bg-[#020617]/30 backdrop-blur-md">
-                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Chat Session</span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={triggerSamudraManthan}
-                            className="text-[10px] font-bold text-accent hover:text-white transition-all flex items-center gap-1.5 bg-accent/10 hover:bg-accent/20 border border-accent/20 hover:border-accent/50 px-2.5 py-1 rounded-md shadow-[0_0_10px_rgba(244,63,94,0.2)]"
-                            title="Initiate Full Orchestra"
-                          >
-                            <Flame size={12} className="animate-pulse" /> Samudra Manthan
-                          </button>
-                          <button
-                            onClick={clearChatHistory}
-                            className="text-[10px] text-slate-500 hover:text-red-400 transition-all flex items-center gap-1 bg-white/5 hover:bg-red-500/10 px-2 py-1 rounded-md"
-                            title="Clear Chat History"
-                          >
-                            <X size={12} /> Clear
-                          </button>
-                        </div>
-                      </div>
+                      <ChatHeader 
+                        onTriggerSamudraManthan={triggerSamudraManthan}
+                        onClearChatHistory={clearChatHistory}
+                      />
 
-                      <div className="flex-1 p-4 space-y-5 overflow-y-auto custom-scrollbar">
-                        {activeAgent && (
-                          <div className="bg-primary/10 backdrop-blur-md border border-primary/30 rounded-lg p-2.5 flex items-center gap-2.5 animate-fade-in shadow-[0_4px_20px_rgba(99,102,241,0.15)]">
-                            <div className="w-2.5 h-2.5 bg-primary rounded-full animate-ping shadow-[0_0_8px_rgba(99,102,241,1)]" />
-                            <span className="text-[10px] font-bold text-primary tracking-widest uppercase">
-                              ACTIVE: {activeAgent.name} ({activeAgent.mandala})
-                            </span>
-                          </div>
-                        )}
-                        {messages.length === 0 ? (
-                          <div className="text-center py-12 space-y-6 animate-fade-in">
-                            <div className="relative w-20 h-20 mx-auto">
-                              <div className="absolute inset-0 bg-gradient-to-tr from-primary to-secondary rounded-full animate-spin [animation-duration:3s] blur-md opacity-50" />
-                              <div className="absolute inset-0.5 bg-[#020617] rounded-full flex items-center justify-center border border-white/10 z-10">
-                                <Cpu size={32} className="text-transparent bg-clip-text bg-gradient-to-br from-primary to-secondary animate-pulse" />
-                              </div>
-                            </div>
-                            <h3 className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-primary via-secondary to-accent text-xl tracking-tight">DEV-AI ORCHESTRA</h3>
-                            <p className="text-xs text-slate-400 leading-relaxed max-w-[200px] mx-auto">
-                              Your autonomous divine developer. Awaiting your command to architect, design, and build.
-                            </p>
-                          </div>
-                        ) : (
-                          messages.filter(m => !m.hidden).map(msg => (
-                            <div key={msg.id} className={cn("flex flex-col gap-1.5 animate-slide-up", msg.role === 'user' ? "items-end" : "items-start")}>
-                              <div className={cn("px-4 py-3 rounded-2xl text-[13px] leading-relaxed max-w-[90%] backdrop-blur-md shadow-lg",
-                                msg.role === 'user' ? "bg-gradient-to-br from-primary/90 to-secondary/90 text-white rounded-tr-sm border border-white/20 shadow-[0_4px_20px_rgba(99,102,241,0.3)]" : "bg-[#1e293b]/60 border border-white/10 text-slate-200 rounded-tl-sm shadow-[0_4px_20px_rgba(0,0,0,0.2)]")}>
-                                <p className="whitespace-pre-wrap font-medium">{msg.content}</p>
-                              </div>
-                              <span className="text-[9px] font-semibold tracking-wider text-slate-500 px-2">
-                                {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </div>
-                          ))
-                        )}
-                        {error && (
-                          <div className="p-3 rounded-lg bg-red-950/50 border border-red-500/30 text-red-400 text-xs shadow-[0_0_15px_rgba(239,68,68,0.1)]">
-                            <strong>System Failure:</strong> {error}
-                          </div>
-                        )}
-                        {loading && (
-                          <div className="flex gap-2.5 p-3 items-center bg-[#1e293b]/60 backdrop-blur-md rounded-2xl rounded-tl-sm w-fit animate-pulse border border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.2)]">
-                            <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"></div>
-                            <div className="w-1.5 h-1.5 bg-secondary rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                            <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce [animation-delay:0.4s]"></div>
-                          </div>
-                        )}
-                        <div ref={messagesEndRef} />
-                      </div>
+                      <MessageList 
+                        messages={messages}
+                        activeAgent={activeAgent}
+                        loading={loading}
+                        error={error}
+                        messagesEndRef={messagesEndRef}
+                      />
 
-                      <div className="p-4 border-t border-white/10 bg-[#020617]/50 backdrop-blur-xl">
-                        <form onSubmit={handleSendMessage} className="relative group">
-                          <div className="absolute -inset-0.5 bg-gradient-to-r from-primary via-secondary to-accent rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
-                          <textarea
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(e as any); } }}
-                            placeholder="Initialize divine protocol..."
-                            rows={2}
-                            className="relative w-full bg-[#0f172a]/90 backdrop-blur-sm border border-white/10 rounded-xl p-3.5 text-[13px] font-medium text-slate-200 focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none pr-12 custom-scrollbar shadow-inner"
-                          />
-                          {loading ? (
-                            <button
-                              type="button"
-                              onClick={handleStop}
-                              className="absolute right-3.5 bottom-4.5 text-accent hover:text-red-400 hover:scale-110 transition-all drop-shadow-[0_0_8px_rgba(244,63,94,0.5)]"
-                              title="Stop Generation"
-                            >
-                              <Square size={20} fill="currentColor" />
-                            </button>
-                          ) : (
-                            <button
-                              type="submit"
-                              disabled={!input.trim()}
-                              className="absolute right-3.5 bottom-4.5 text-primary disabled:opacity-30 hover:text-secondary hover:scale-110 transition-all drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]"
-                              title="Send Message"
-                            >
-                              <Play size={20} fill="currentColor" />
-                            </button>
-                          )}
-                        </form>
-                      </div>
+                      <ChatForm 
+                        input={input}
+                        setInput={setInput}
+                        loading={loading}
+                        onSendMessage={handleSendMessage}
+                        onStop={handleStop}
+                      />
                     </div>
                   )}
                 </div>
