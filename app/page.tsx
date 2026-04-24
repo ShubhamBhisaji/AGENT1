@@ -27,9 +27,6 @@ import {
   Workflow,
   Box,
   Network,
-  FolderPlus,
-  FilePlus,
-  Trash2,
   GitBranch,
   Database,
   HardDrive
@@ -38,6 +35,9 @@ import {
 import { ChatHeader } from '../components/chat/ChatHeader';
 import { ChatForm } from '../components/chat/ChatForm';
 import { MessageList } from '../components/chat/MessageList';
+import { KanbanBoard } from '../components/kanban/KanbanBoard';
+import { CommandPalette } from '../components/palette/CommandPalette';
+import { FileItem } from '../components/files/FileItem';
 
 const Code2 = (props: any) => <span {...props}>&lt;/&gt;</span>;
 const Cpu = (props: any) => <span {...props}>CPU</span>;
@@ -99,7 +99,7 @@ export default function ChatPage() {
 
   // IDE State
   const [fileTree, setFileTree] = useState<FileNode | null>(null);
-  const [openFiles, setOpenFiles] = useState<{ path: string; name: string; content: string }[]>([]);
+  const [openFiles, setOpenFiles] = useState<{name: string; path: string; content: string}[]>([]);
   const [activeFileIndex, setActiveFileIndex] = useState(-1);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['.']));
   const [mounted, setMounted] = useState(false);
@@ -197,7 +197,18 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
-      window.localStorage.setItem('devi_messages', JSON.stringify(messages));
+      try {
+        let serialized = JSON.stringify(messages);
+        // Browser localStorage limit is typically ~5MB. If size approaches 4MB (4 * 1024 * 1024), trim history.
+        if (serialized.length > 4 * 1024 * 1024) {
+          const trimmedMessages = messages.slice(Math.max(0, messages.length - 100)); // Keep last 100 messages
+          serialized = JSON.stringify(trimmedMessages);
+          console.warn('Chat history trimmed to prevent exceeding localStorage limits.');
+        }
+        window.localStorage.setItem('devi_messages', serialized);
+      } catch (e) {
+        console.error('Error saving messages to localStorage:', e);
+      }
     }
   }, [messages]);
 
@@ -209,26 +220,22 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (messages.length > 0) {
-      scrollToBottom();
+      // Use requestAnimationFrame to ensure DOM is painted before scrolling
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => scrollToBottom());
+      });
     }
   }, [messages.length, scrollToBottom]);
 
   useEffect(() => {
     if (terminalOutput.length > 0) {
-      scrollTerminalToBottom();
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => scrollTerminalToBottom());
+      });
     }
   }, [terminalOutput.length, scrollTerminalToBottom]);
 
-  // Scroll to bottom after hydration
-  useEffect(() => {
-    if (mounted) {
-      const timer = setTimeout(() => {
-        scrollToBottom();
-        scrollTerminalToBottom();
-      }, 500); // Increased delay to ensure rendering is complete
-      return () => clearTimeout(timer);
-    }
-  }, [mounted, messages.length, terminalOutput.length, scrollToBottom, scrollTerminalToBottom]);
+  // Remove the bloated hydration timeout effect
 
   // --- API Actions ---
 
@@ -351,7 +358,7 @@ Command: Orchestrate all 30 agents. NARADA manages communication flow. CHITRAGUP
     let agentMatch;
     if ((agentMatch = agentRegex.exec(text)) !== null) {
       const agentName = agentMatch[1];
-      setActiveAgent({ name: agentName, mandala: getMandalaForAgent(agentName) });
+      setActiveAgent({ name: agentName, mandala: getAgentMandala(agentName) });
       addTerminalLog(`⚡ AGENT ACTIVATED: ${agentName}`);
     }
 
@@ -597,96 +604,13 @@ Command: Orchestrate all 30 agents. NARADA manages communication flow. CHITRAGUP
     }
   };
 
-  const getMandalaForAgent = (name: string) => {
+  const getAgentMandala = (name: string) => {
     const map: Record<string, string> = {
       'BRAHMA': 'TRIMURTI', 'VISHNU': 'TRIMURTI', 'SHIVA': 'TRIMURTI',
       'SARASWATI': 'SARASWATI MANDALA', 'VISHWAKARMA': 'VISHWAKARMA MANDALA',
       'INDRA': 'VISHWAKARMA MANDALA', 'AGNI': 'VISHWAKARMA MANDALA'
     };
     return map[name.toUpperCase()] || 'DEV-AI ORCHESTRA';
-  };
-
-  // --- Sub-components ---
-
-  const FileItem = ({ node, depth = 0 }: { node: FileNode; depth?: number }) => {
-    const isExpanded = expandedFolders.has(node.path);
-    const padding = depth * 12 + 12;
-    const isRoot = node.path === '.';
-
-    if (node.type === 'directory') {
-      return (
-        <div className="select-none">
-          <div
-            className="flex items-center justify-between py-1 hover:bg-white/5 group relative"
-            style={{ paddingLeft: `${padding}px`, paddingRight: '8px' }}
-          >
-            <div
-              className="flex items-center gap-1.5 cursor-pointer text-slate-400 hover:text-white flex-1 overflow-hidden"
-              onClick={() => toggleFolder(node.path)}
-            >
-              {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              <Folder size={14} className="text-blue-400/80 shrink-0" />
-              <span className="text-xs font-medium truncate">{node.name}</span>
-            </div>
-
-            {/* Quick Actions (Hover) */}
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={(e) => { e.stopPropagation(); setCreatingNode({ path: node.path, type: 'file' }); setExpandedFolders(prev => new Set(prev).add(node.path)); }} className="p-0.5 text-slate-500 hover:text-primary transition-colors" title="New File">
-                <FilePlus size={12} />
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); setCreatingNode({ path: node.path, type: 'directory' }); setExpandedFolders(prev => new Set(prev).add(node.path)); }} className="p-0.5 text-slate-500 hover:text-secondary transition-colors" title="New Folder">
-                <FolderPlus size={12} />
-              </button>
-              {!isRoot && (
-                <button onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.path); }} className="p-0.5 text-slate-500 hover:text-red-400 transition-colors" title="Delete Folder">
-                  <Trash2 size={12} />
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* New Node Input Field */}
-          {creatingNode?.path === node.path && isExpanded && (
-            <div className="flex items-center py-1" style={{ paddingLeft: `${padding + 20}px`, paddingRight: '8px' }}>
-              {creatingNode.type === 'directory' ? <Folder size={14} className="text-blue-400/80 shrink-0 mr-1.5" /> : <FileText size={14} className="text-slate-500 shrink-0 mr-1.5" />}
-              <form onSubmit={handleCreateNodeSubmit} className="flex-1">
-                <input
-                  autoFocus
-                  type="text"
-                  value={newNodeName}
-                  onChange={(e) => setNewNodeName(e.target.value)}
-                  onBlur={() => setCreatingNode(null)}
-                  onKeyDown={(e) => { if(e.key === 'Escape') setCreatingNode(null); }}
-                  className="w-full bg-[#0f172a] border border-primary/50 text-xs text-white px-1.5 py-0.5 rounded outline-none focus:ring-1 focus:ring-primary shadow-[0_0_5px_rgba(99,102,241,0.5)]"
-                />
-              </form>
-            </div>
-          )}
-
-          {isExpanded && node.children?.map(child => (
-            <FileItem key={child.path} node={child} depth={depth + 1} />
-          ))}
-        </div>
-      );
-    }
-
-    return (
-      <div
-        className="flex items-center justify-between py-1 hover:bg-white/5 group"
-        style={{ paddingLeft: `${padding + 20}px`, paddingRight: '8px' }}
-      >
-        <div
-          className="flex items-center gap-1.5 cursor-pointer text-slate-400 hover:text-white flex-1 overflow-hidden"
-          onClick={() => openFile(node.path, node.name)}
-        >
-          <FileText size={14} className="text-slate-500 shrink-0" />
-          <span className="text-xs font-medium truncate">{node.name}</span>
-        </div>
-        <button onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.path); }} className="p-0.5 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete File">
-          <Trash2 size={12} />
-        </button>
-      </div>
-    );
   };
 
   if (!mounted) return <div className="h-screen bg-[#020617]" />;
@@ -873,7 +797,19 @@ Command: Orchestrate all 30 agents. NARADA manages communication flow. CHITRAGUP
                         </div>
                       </div>
                       {fileTree && fileTree.children && fileTree.children.length > 0 ? (
-                        <FileItem node={fileTree} />
+                        <FileItem
+                          node={fileTree}
+                          expandedFolders={expandedFolders}
+                          creatingNode={creatingNode}
+                          newNodeName={newNodeName}
+                          setNewNodeName={setNewNodeName}
+                          setCreatingNode={setCreatingNode}
+                          setExpandedFolders={setExpandedFolders}
+                          toggleFolder={toggleFolder}
+                          handleCreateNodeSubmit={handleCreateNodeSubmit}
+                          handleDeleteNode={handleDeleteNode}
+                          openFile={openFile}
+                        />
                       ) : (
                         <div className="p-8 text-center space-y-2">
                           <Folder size={24} className="mx-auto text-gray-700" />
@@ -990,69 +926,7 @@ Command: Orchestrate all 30 agents. NARADA manages communication flow. CHITRAGUP
                         )}
                       </div>
                     ) : mainView === 'kanban' ? (
-                      <div className="flex-1 flex flex-col bg-[#020617]/50 backdrop-blur-sm p-6 overflow-hidden">
-                        <div className="flex items-center justify-between mb-6">
-                          <div>
-                            <h2 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary uppercase tracking-widest flex items-center gap-2">
-                              <Workflow size={24} className="text-primary" />
-                              Orchestration Matrix
-                            </h2>
-                            <p className="text-xs text-slate-500 tracking-wider mt-1">Real-time visualization of the Divine Engine pipeline.</p>
-                          </div>
-                        </div>
-                        <div className="flex-1 flex gap-4 overflow-x-auto custom-scrollbar">
-                          {/* Column 1 */}
-                          <div className="w-80 shrink-0 bg-[#0f172a]/40 border border-white/5 rounded-xl p-4 flex flex-col gap-3">
-                            <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Akasha (Backlog)</span>
-                              <span className="bg-white/10 text-slate-400 text-[10px] px-2 py-0.5 rounded">3</span>
-                            </div>
-                            <div className="bg-[#1e293b]/60 border border-white/5 p-3 rounded-lg shadow-lg">
-                              <div className="text-xs font-medium text-slate-300 mb-2">Design Global Authentication Context</div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-[9px] bg-indigo-500/20 text-indigo-400 px-1.5 rounded border border-indigo-500/30">BRAHMA</span>
-                              </div>
-                            </div>
-                            <div className="bg-[#1e293b]/60 border border-white/5 p-3 rounded-lg shadow-lg">
-                              <div className="text-xs font-medium text-slate-300 mb-2">Map JWT Routes</div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1.5 rounded border border-blue-500/30">GANESHA</span>
-                              </div>
-                            </div>
-                          </div>
-                          {/* Column 2 */}
-                          <div className="w-80 shrink-0 bg-[#0f172a]/60 border border-primary/20 rounded-xl p-4 flex flex-col gap-3 relative shadow-[0_0_15px_rgba(99,102,241,0.1)]">
-                            <div className="absolute top-0 inset-x-0 h-[2px] bg-primary animate-pulse" />
-                            <div className="flex items-center justify-between border-b border-primary/20 pb-2">
-                              <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Sudarshan (In Progress)</span>
-                              <span className="bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded">1</span>
-                            </div>
-                            <div className="bg-gradient-to-br from-[#1e293b] to-[#0f172a] border border-primary/40 p-3 rounded-lg shadow-[0_0_20px_rgba(99,102,241,0.2)]">
-                              <div className="text-xs font-medium text-white mb-2">Implement Supabase RLS Policies</div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 rounded border border-emerald-500/30 flex items-center gap-1">
-                                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping" /> DURGA
-                                </span>
-                                <span className="text-[9px] text-slate-500">Executing...</span>
-                              </div>
-                            </div>
-                          </div>
-                          {/* Column 3 */}
-                          <div className="w-80 shrink-0 bg-[#0f172a]/40 border border-white/5 rounded-xl p-4 flex flex-col gap-3">
-                            <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Moksha (Completed)</span>
-                              <span className="bg-white/10 text-slate-400 text-[10px] px-2 py-0.5 rounded">1</span>
-                            </div>
-                            <div className="bg-[#020617]/60 border border-white/5 p-3 rounded-lg opacity-60">
-                              <div className="text-xs font-medium text-slate-400 line-through mb-2">Generate Project Architecture</div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-[9px] bg-indigo-500/20 text-indigo-400 px-1.5 rounded border border-indigo-500/30">BRAHMA</span>
-                                <span className="text-[10px] text-emerald-500">✓</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      <KanbanBoard />
                     ) : activeFileIndex >= 0 ? (
                       <div className="flex-1 relative bg-[#020617]/50 backdrop-blur-sm group/editor">
                         {/* Floating Editor Actions - Visible on hover or active */}
@@ -1268,71 +1142,19 @@ Command: Orchestrate all 30 agents. NARADA manages communication flow. CHITRAGUP
 
       {/* Command Palette Overlay */}
       {showCommandPalette && (
-        <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-[15vh]">
-          <div
-            className="w-full max-w-2xl bg-[#0f172a]/95 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5),0_0_15px_rgba(99,102,241,0.2)] rounded-xl overflow-hidden flex flex-col animate-slide-up"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center px-4 py-3 border-b border-white/5 relative">
-              <Command size={16} className="text-primary mr-3" />
-              <input
-                autoFocus
-                placeholder="Search commands, agents, or files..."
-                className="flex-1 bg-transparent border-none outline-none text-sm text-slate-200 placeholder-slate-500 font-sans"
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') setShowCommandPalette(false);
-                }}
-              />
-              <div className="text-[10px] bg-white/5 px-2 py-1 rounded text-slate-400 font-mono">ESC</div>
-              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
-            </div>
-            <div className="max-h-[60vh] overflow-y-auto p-2 custom-scrollbar">
-              <div className="px-2 py-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Global Actions</div>
-              <button
-                className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-primary/20 flex items-center justify-between group transition-colors"
-                onClick={() => { runProject(); setShowCommandPalette(false); }}
-              >
-                <div className="flex items-center gap-3">
-                  <Play size={14} className="text-emerald-400" />
-                  <span className="text-sm text-slate-300 group-hover:text-white font-medium">Run Project Environment</span>
-                </div>
-                <span className="text-xs text-slate-500 font-mono">F5</span>
-              </button>
-              <button
-                className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-secondary/20 flex items-center justify-between group transition-colors"
-                onClick={() => { setSidebarTab('chat'); setShowSidebar(true); setShowCommandPalette(false); }}
-              >
-                <div className="flex items-center gap-3">
-                  <MessageSquare size={14} className="text-secondary" />
-                  <span className="text-sm text-slate-300 group-hover:text-white font-medium">Invoke Dev-AI Assistant</span>
-                </div>
-                <span className="text-xs text-slate-500 font-mono">Ctrl+B</span>
-              </button>
-
-              <div className="px-2 py-1.5 mt-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Agent Shortcuts</div>
-              <button
-                className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-white/5 flex items-center justify-between group transition-colors"
-                onClick={() => { handleSendMessage(null, "[[AGENT:BRAHMA]] Review the current architecture and suggest improvements.", false); setShowCommandPalette(false); setSidebarTab('chat'); setShowSidebar(true); }}
-              >
-                <div className="flex items-center gap-3">
-                  <Layers size={14} className="text-slate-400" />
-                  <span className="text-sm text-slate-300 group-hover:text-white">Summon <span className="font-bold text-primary">BRAHMA</span> (Architecture)</span>
-                </div>
-              </button>
-              <button
-                className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-white/5 flex items-center justify-between group transition-colors"
-                onClick={() => { handleSendMessage(null, "[[AGENT:SHIVA]] Refactor the open code to remove technical debt.", false); setShowCommandPalette(false); setSidebarTab('chat'); setShowSidebar(true); }}
-              >
-                <div className="flex items-center gap-3">
-                  <Zap size={14} className="text-slate-400" />
-                  <span className="text-sm text-slate-300 group-hover:text-white">Summon <span className="font-bold text-primary">SHIVA</span> (Optimization)</span>
-                </div>
-              </button>
-            </div>
-          </div>
-          {/* Invisible backdrop click catcher */}
-          <div className="absolute inset-0 z-[-1]" onClick={() => setShowCommandPalette(false)} />
-        </div>
+        <CommandPalette
+          onClose={() => setShowCommandPalette(false)}
+          onRunProject={runProject}
+          onInvokeChat={() => {
+            setSidebarTab('chat');
+            setShowSidebar(true);
+          }}
+          onSummonAgent={(agent, prompt) => {
+            handleSendMessage(null, `[[AGENT:${agent}]] ${prompt}`, false);
+            setSidebarTab('chat');
+            setShowSidebar(true);
+          }}
+        />
       )}
 
       <style jsx global>{`

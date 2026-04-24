@@ -29,11 +29,7 @@
         "nsis",
         "portable"
       ],
-      "icon": "public/favicon.ico",
-      "certificateFile": null,
-      "certificatePassword": null,
-      "signingHashAlgorithms": ["sha256"],
-      "sign": null
+      "icon": "public/favicon.ico"
     },
     "nsis": {
       "oneClick": false,
